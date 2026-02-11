@@ -9,6 +9,9 @@ import math
 import logging
 from datetime import datetime, timezone
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import requests
 from flask import Flask, jsonify, request, render_template
 
@@ -18,8 +21,8 @@ from flask import Flask, jsonify, request, render_template
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret")
 
-MBTA_API_KEY = os.environ.get("MBTA_API_KEY", "")
-ORS_API_KEY = os.environ.get("ORS_API_KEY", "")  # OpenRouteService
+MBTA_API_KEY = os.environ.get("MBTA_API_KEY", "40b4403167ee4216978dded033c9870a")
+ORS_API_KEY = os.environ.get("ORS_API_KEY", "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjNiOTE5N2RiMTU0MjQ2MzM4NmFjNmE3ZWVjZGYwMjk1IiwiaCI6Im11cm11cjY0In0=")
 
 MBTA_BASE = "https://api-v3.mbta.com"
 ORS_BASE = "https://api.openrouteservice.org"
