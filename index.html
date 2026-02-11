@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MBTA Near">
+<title>MBTA Nearby</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e17; --surface: #131a2b; --surface-2: #1a2340; --border: #243052;
+  --text: #e8ecf4; --text-dim: #8892a8; --text-muted: #556180;
+  --accent: #4de8b4; --accent-dim: #2a8c6a;
+  --danger: #ff6b7a; --warning: #ffb84d;
+  --bus: #ffd23f; --subway: #ff6b35; --rail: #a78bfa; --ferry: #38bdf8; --tram: #4ade80;
+  --catchable: #4de8b4; --missed: #ff6b7a; --tight: #ffb84d;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Plus Jakarta Sans',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100dvh; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+
+.header { position:sticky; top:0; z-index:100; background:rgba(10,14,23,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:16px 20px 12px; }
+.header-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.logo { font-family:'DM Mono',monospace; font-weight:500; font-size:15px; letter-spacing:0.08em; color:var(--accent); text-transform:uppercase; }
+.logo span { color:var(--text-dim); }
+.updated { font-family:'DM Mono',monospace; font-size:11px; color:var(--text-muted); }
+.header-actions { display:flex; gap:8px; }
+
+.btn { display:inline-flex; align-items:center; gap:6px; padding:10px 18px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text); font-family:'Plus Jakarta Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s; -webkit-tap-highlight-color:transparent; }
+.btn:active { transform:scale(0.97); }
+.btn:disabled { opacity:0.5; pointer-events:none; }
+.btn-primary { background:var(--accent); color:var(--bg); border-color:var(--accent); flex:1; }
+.btn-primary:active { background:var(--accent-dim); }
+.btn-icon { width:42px; padding:10px; justify-content:center; }
+
+.location-bar { display:flex; align-items:center; gap:6px; margin-top:8px; padding:8px 12px; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; font-size:12px; color:var(--text-dim); font-family:'DM Mono',monospace; }
+.location-bar .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.dot-ok { background:var(--accent); } .dot-manual { background:var(--warning); }
+.location-bar .edit-link { margin-left:auto; color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+
+.state { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:55dvh; padding:40px 20px; text-align:center; }
+.state-icon { font-size:48px; margin-bottom:16px; opacity:0.7; }
+.state-title { font-size:18px; font-weight:600; margin-bottom:8px; }
+.state-desc { font-size:14px; color:var(--text-dim); max-width:320px; line-height:1.5; }
+
+@keyframes spin { to { transform:rotate(360deg); } }
+.spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:16px; }
+
+.manual-form { margin:20px auto 0; max-width:320px; width:100%; }
+.manual-form label { display:block; font-size:12px; color:var(--text-dim); margin-bottom:4px; font-family:'DM Mono',monospace; }
+.manual-form input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-family:'DM Mono',monospace; font-size:14px; margin-bottom:10px; }
+.manual-form input:focus { outline:none; border-color:var(--accent); }
+.form-row { display:flex; gap:8px; }
+.form-row > div { flex:1; }
+.preset-btns { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.preset-btn { padding:6px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text-dim); font-size:12px; cursor:pointer; font-family:'Plus Jakarta Sans',sans-serif; transition:all 0.15s; }
+.preset-btn:hover,.preset-btn:active { background:var(--surface-2); border-color:var(--accent); color:var(--text); }
+.divider { display:flex; align-items:center; gap:12px; margin:16px 0; font-size:12px; color:var(--text-muted); }
+.divider::before,.divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* Stop cards */
+.stops-list { padding:12px 12px 100px; display:flex; flex-direction:column; gap:10px; }
+.stop-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; animation:fadeUp 0.35s ease-out both; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+.stop-header { padding:14px 16px 8px; }
+.stop-header-top { display:flex; align-items:flex-start; justify-content:space-between; }
+.stop-name { font-size:15px; font-weight:600; line-height:1.3; flex:1; margin-right:12px; }
+.stop-type-icons { font-size:13px; margin-left:4px; }
+.walk-badge { display:flex; align-items:center; gap:4px; font-family:'DM Mono',monospace; font-size:13px; font-weight:500; color:var(--accent); background:rgba(77,232,180,0.1); padding:4px 10px; border-radius:8px; white-space:nowrap; }
+.walk-badge svg { width:14px; height:14px; flex-shrink:0; }
+.walk-method { font-size:9px; color:var(--text-muted); font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:0.05em; text-align:right; }
+.distance { font-family:'DM Mono',monospace; font-size:11px; color:var(--text-muted); }
+
+/* Route chips shown under stop name */
+.route-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+.route-chip { font-family:'DM Mono',monospace; font-size:11px; font-weight:500; padding:2px 8px; border-radius:5px; white-space:nowrap; line-height:1.4; }
+
+/* Predictions */
+.predictions { padding:0 16px 14px; }
+.pred-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid rgba(36,48,82,0.6); }
+.route-badge { font-family:'DM Mono',monospace; font-size:12px; font-weight:500; padding:3px 8px; border-radius:6px; white-space:nowrap; min-width:42px; text-align:center; }
+.pred-info { flex:1; min-width:0; }
+.pred-headsign { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pred-direction { font-size:11px; color:var(--text-muted); }
+.pred-times-col { text-align:right; flex-shrink:0; }
+.pred-departs { font-size:13px; font-weight:600; font-family:'DM Mono',monospace; }
+.pred-leave { font-size:11px; font-family:'DM Mono',monospace; }
+.pred-leave.catchable { color:var(--catchable); }
+.pred-leave.tight { color:var(--tight); }
+.pred-leave.missed { color:var(--missed); }
+.pred-status { font-size:10px; color:var(--text-muted); font-family:'DM Mono',monospace; }
+.no-predictions { padding:10px 0; font-size:13px; color:var(--text-muted); font-style:italic; }
+
+.nav-link { display:inline-flex; align-items:center; gap:4px; margin-top:6px; padding:6px 12px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; color:var(--text-dim); font-size:12px; text-decoration:none; }
+.nav-link:active { background:var(--border); }
+
+.overlay { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.7); padding:20px; align-items:center; justify-content:center; }
+.overlay.open { display:flex; }
+.overlay-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; max-width:360px; width:100%; }
+.overlay-card h3 { font-size:16px; margin-bottom:16px; }
+.overlay-card label { font-size:13px; color:var(--text-dim); display:block; margin-bottom:6px; }
+.overlay-card select { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px; margin-bottom:16px; font-family:'DM Mono',monospace; }
+
+.debug-bar { padding:8px 20px; background:var(--surface-2); border-bottom:1px solid var(--border); font-family:'DM Mono',monospace; font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.debug-bar a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
+
+@media (min-width:500px) {
+  .stops-list { max-width:480px; margin:0 auto; }
+  .header,.debug-bar { padding-left:calc(50% - 230px); padding-right:calc(50% - 230px); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="logo">MBTA <span>Nearby</span></div>
+    <div class="updated" id="updated-time"></div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" id="refresh-btn" onclick="refresh()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+      Refresh
+    </button>
+    <button class="btn btn-icon" onclick="toggleSettings()" title="Settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </button>
+  </div>
+  <div class="location-bar" id="location-bar" style="display:none">
+    <div class="dot" id="loc-dot"></div>
+    <span id="loc-text"></span>
+    <span class="edit-link" onclick="showManualEntry()">change</span>
+  </div>
+</div>
+
+<div class="debug-bar">
+  <span>Debug:</span>
+  <a href="/api/health" target="_blank">health</a>
+  <a href="/api/test" target="_blank">test (Park St)</a>
+  <span id="geo-status">GPS: checking…</span>
+</div>
+
+<div id="content">
+  <div class="state">
+    <div class="state-icon">📍</div>
+    <div class="state-title">Find what's nearby</div>
+    <div class="state-desc">Tap <strong>Refresh</strong> to use your GPS, or pick a location below.</div>
+    <div class="divider">or choose a location</div>
+    <div class="manual-form">
+      <label>Quick picks (Boston)</label>
+      <div class="preset-btns">
+        <button class="preset-btn" onclick="usePreset(42.3564,-71.0624,'Park Street')">Park Street</button>
+        <button class="preset-btn" onclick="usePreset(42.3525,-71.0553,'South Station')">South Station</button>
+        <button class="preset-btn" onclick="usePreset(42.3656,-71.0618,'Haymarket')">Haymarket</button>
+        <button class="preset-btn" onclick="usePreset(42.3490,-71.0571,'Broadway')">Broadway</button>
+        <button class="preset-btn" onclick="usePreset(42.3653,-71.1033,'Harvard')">Harvard</button>
+        <button class="preset-btn" onclick="usePreset(42.3954,-71.1425,'Alewife')">Alewife</button>
+      </div>
+      <div class="form-row">
+        <div><label>Latitude</label><input type="text" id="manual-lat" placeholder="42.3564" inputmode="decimal"></div>
+        <div><label>Longitude</label><input type="text" id="manual-lon" placeholder="-71.0624" inputmode="decimal"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="useManualLocation()">Search this location</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="settings-overlay">
+  <div class="overlay-card">
+    <h3>Settings</h3>
+    <label>Search radius</label>
+    <select id="radius-select">
+      <option value="0.005">&frac14; mile</option>
+      <option value="0.01" selected>&frac12; mile</option>
+      <option value="0.02">1 mile</option>
+      <option value="0.04">2 miles</option>
+    </select>
+    <button class="btn btn-primary" style="width:100%;" onclick="toggleSettings()">Done</button>
+  </div>
+</div>
+
+<script>
+const API='/api/nearby';
+let currentLat=null,currentLon=null,currentSource=null;
+function $(id){return document.getElementById(id);}
+
+function checkGeoSupport(){
+  const el=$('geo-status');
+  if(!navigator.geolocation){el.textContent='GPS: not supported';el.style.color='var(--danger)';return;}
+  if(location.protocol!=='https:'&&!['localhost','127.0.0.1'].includes(location.hostname)){el.textContent='GPS: needs HTTPS';el.style.color='var(--warning)';return;}
+  if(navigator.permissions){navigator.permissions.query({name:'geolocation'}).then(r=>{
+    const m={granted:['GPS: granted ✓','var(--accent)'],prompt:['GPS: will prompt','var(--warning)'],denied:['GPS: denied ✗','var(--danger)']};
+    const[t,c]=m[r.state]||['GPS: unknown','var(--text-muted)'];el.textContent=t;el.style.color=c;
+  }).catch(()=>{el.textContent='GPS: available';});}else{el.textContent='GPS: available';}
+}
+
+function getGPS(){return new Promise((res,rej)=>{
+  if(!navigator.geolocation){rej(new Error('Geolocation not supported.'));return;}
+  navigator.geolocation.getCurrentPosition(
+    p=>res({lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy}),
+    e=>{const m={1:'Location permission denied. Allow location access or use a preset below.',2:'Location unavailable. Use a preset or enter coordinates.',3:'Location timed out. Try again or use manual entry.'};rej(new Error(m[e.code]||'Geolocation error'));},
+    {enableHighAccuracy:true,timeout:15000,maximumAge:60000}
+  );
+});}
+
+function updateLocBar(lat,lon,src,detail){
+  const bar=$('location-bar');bar.style.display='flex';
+  const dot=$('loc-dot'),text=$('loc-text'),ll=`${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  if(src==='gps'){dot.className='dot dot-ok';text.textContent=`GPS: ${ll}`+(detail?` (±${Math.round(detail)}m)`:'');}
+  else if(src==='preset'){dot.className='dot dot-manual';text.textContent=`📌 ${detail||ll}`;}
+  else{dot.className='dot dot-manual';text.textContent=`Manual: ${ll}`;}
+}
+
+function usePreset(lat,lon,name){currentLat=lat;currentLon=lon;currentSource='preset';
+  const latEl=$('manual-lat'),lonEl=$('manual-lon');if(latEl)latEl.value=lat;if(lonEl)lonEl.value=lon;
+  updateLocBar(lat,lon,'preset',name);fetchAndRender(lat,lon);}
+
+function useManualLocation(){
+  const lat=parseFloat($('manual-lat').value),lon=parseFloat($('manual-lon').value);
+  if(isNaN(lat)||isNaN(lon)){alert('Enter valid lat/lon.');return;}
+  currentLat=lat;currentLon=lon;currentSource='manual';updateLocBar(lat,lon,'manual');fetchAndRender(lat,lon);}
+
+function showManualEntry(){$('content').innerHTML=`<div class="state"><div class="state-icon">📍</div><div class="state-title">Change location</div><div class="divider">locations</div>${manualFormHTML()}</div>`;
+  if(currentLat)$('manual-lat').value=currentLat;if(currentLon)$('manual-lon').value=currentLon;}
+
+async function refresh(){
+  if(currentLat&&currentLon&&currentSource!=='gps'){fetchAndRender(currentLat,currentLon);return;}
+  showLoading('Getting your location…');
+  try{const loc=await getGPS();currentLat=loc.lat;currentLon=loc.lon;currentSource='gps';updateLocBar(loc.lat,loc.lon,'gps',loc.acc);fetchAndRender(loc.lat,loc.lon);}
+  catch(e){showGPSError(e.message);}
+}
+
+async function fetchAndRender(lat,lon){
+  showLoading('Fetching stops & routes…');
+  try{const r=await fetch(`${API}?lat=${lat}&lon=${lon}&radius=${$('radius-select').value}`);
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||`Server error (${r.status})`);}
+    render(await r.json());}catch(e){showError(e.message);}
+}
+
+function showLoading(m){$('refresh-btn').disabled=true;$('content').innerHTML=`<div class="state"><div class="spinner"></div><div class="state-title">${m}</div></div>`;}
+function showError(m){$('refresh-btn').disabled=false;$('content').innerHTML=`<div class="state"><div class="state-icon">⚠️</div><div class="state-title">Something went wrong</div><div class="state-desc">${m}</div></div>`;}
+function showGPSError(m){$('refresh-btn').disabled=false;$('content').innerHTML=`<div class="state"><div class="state-icon">📍</div><div class="state-title">Couldn't get GPS</div><div class="state-desc">${m}</div><div class="divider">use a location instead</div>${manualFormHTML()}</div>`;}
+
+function manualFormHTML(){return `<div class="manual-form"><label>Quick picks (Boston)</label><div class="preset-btns">
+  <button class="preset-btn" onclick="usePreset(42.3564,-71.0624,'Park Street')">Park Street</button>
+  <button class="preset-btn" onclick="usePreset(42.3525,-71.0553,'South Station')">South Station</button>
+  <button class="preset-btn" onclick="usePreset(42.3656,-71.0618,'Haymarket')">Haymarket</button>
+  <button class="preset-btn" onclick="usePreset(42.3490,-71.0571,'Broadway')">Broadway</button>
+  <button class="preset-btn" onclick="usePreset(42.3653,-71.1033,'Harvard')">Harvard</button>
+  <button class="preset-btn" onclick="usePreset(42.3954,-71.1425,'Alewife')">Alewife</button>
+  </div><div class="form-row"><div><label>Latitude</label><input type="text" id="manual-lat" placeholder="42.3564" inputmode="decimal"></div><div><label>Longitude</label><input type="text" id="manual-lon" placeholder="-71.0624" inputmode="decimal"></div></div>
+  <button class="btn btn-primary" style="width:100%" onclick="useManualLocation()">Search this location</button></div>`;}
+
+function routeColor(p){if(p.route_color)return'#'+p.route_color;return{0:'var(--tram)',1:'var(--subway)',2:'var(--rail)',3:'var(--bus)',4:'var(--ferry)'}[p.route_type||p.type]||'var(--text-dim)';}
+function routeTextColor(p){return(p.route_text_color||p.text_color)?'#'+(p.route_text_color||p.text_color):'#000';}
+function leaveClass(s){if(s==null)return'';if(s<=0)return'missed';if(s<120)return'tight';return'catchable';}
+function fmtMin(s){if(s==null)return'—';const m=Math.round(s/60);return m<=0?'now':m+' min';}
+function fmtTime(iso){if(!iso)return'';try{return new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}catch{return'';}}
+
+function render(data){
+  $('refresh-btn').disabled=false;
+  $('updated-time').textContent='Updated '+new Date(data.updated_at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',second:'2-digit'});
+
+  if(!data.stops||!data.stops.length){
+    $('content').innerHTML=`<div class="state"><div class="state-icon">🔍</div><div class="state-title">No stops found</div><div class="state-desc">${data.message||'Try a larger radius.'}</div></div>`;return;}
+
+  const wi=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><path d="M9 20l3-8 3 8M10.5 14h3M15 8l-3 2-3-2"/></svg>`;
+
+  let h='<div class="stops-list">';
+  data.stops.forEach((s,i)=>{
+    h+=`<div class="stop-card" style="animation-delay:${i*0.05}s">`;
+
+    // Header: name + type icons + walk badge
+    h+=`<div class="stop-header"><div class="stop-header-top"><div><div class="stop-name">${s.name} <span class="stop-type-icons">${s.stop_type_icons||''}</span></div><div class="distance">${s.distance_m}m away</div></div>`;
+    h+=`<div style="text-align:right"><div class="walk-badge">${wi} ${fmtMin(s.walk_seconds)}</div><div class="walk-method">${s.walk_method==='openrouteservice'?'routed':'est.'}</div></div></div>`;
+
+    // Route chips
+    if(s.routes&&s.routes.length){
+      h+='<div class="route-chips">';
+      s.routes.forEach(r=>{
+        const bg=r.color?'#'+r.color:'var(--surface-2)';
+        const fg=r.text_color?'#'+r.text_color:'var(--text)';
+        const name=r.short_name||r.long_name||r.route_id;
+        h+=`<span class="route-chip" style="background:${bg};color:${fg}" title="${r.long_name||''} (${r.type_label})">${r.type_icon} ${name}</span>`;
+      });
+      h+='</div>';
+    }
+    h+='</div>'; // stop-header
+
+    // Predictions
+    h+='<div class="predictions">';
+    if(!s.predictions.length){
+      h+='<div class="no-predictions">No real-time predictions available</div>';
+    } else {
+      s.predictions.forEach(p=>{
+        const bg=routeColor(p),fg=routeTextColor(p);
+        const cls=leaveClass(p.leave_in_seconds);
+        const depTime=fmtTime(p.departure_time||p.arrival_time);
+        let lbl='';
+        if(p.catchable===true)lbl=`Leave in ${fmtMin(p.leave_in_seconds)}`;
+        else if(p.catchable===false)lbl='Too late';
+        else lbl='—';
+
+        // Headsign or direction
+        const hs=p.headsign||p.direction_name||'';
+
+        h+=`<div class="pred-row">
+          <div class="route-badge" style="background:${bg};color:${fg}">${p.route_name}</div>
+          <div class="pred-info">
+            <div class="pred-headsign">${p.route_type_icon||''} ${hs||p.route_long_name||p.route_name}</div>
+            ${p.direction_name&&p.headsign?`<div class="pred-direction">${p.direction_name}</div>`:''}
+          </div>
+          <div class="pred-times-col">
+            <div class="pred-departs">${fmtMin(p.departs_in_seconds)}</div>
+            <div class="pred-leave ${cls}">${lbl}</div>
+            ${depTime?`<div class="pred-status">${depTime}</div>`:''}
+          </div>
+        </div>`;
+      });
+    }
+
+    if(s.lat&&s.lon)h+=`<a class="nav-link" href="https://maps.apple.com/?daddr=${s.lat},${s.lon}&dirflg=w" target="_blank"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg> Walk here</a>`;
+    h+='</div></div>'; // predictions + stop-card
+  });
+  h+='</div>';
+  $('content').innerHTML=h;
+}
+
+function toggleSettings(){$('settings-overlay').classList.toggle('open');}
+checkGeoSupport();
+</script>
+</body>
+</html>
